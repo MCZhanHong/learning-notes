@@ -187,7 +187,7 @@
     // 4
     ```
 
-## Operators
+## 操作符Operators
 
 + take:取前几个元素就结束
     ```javascript
@@ -424,5 +424,144 @@
     main   :----h----e----l----l----o|
     some   :--0--1--0--0--0--1|
     example:----h----e----l----L----o|
+    ```
+
++ scan:和Array.reduce方法类似
+    ```javascript
+    var source = Rx.Observable.from('hello')
+             .zip(Rx.Observable.interval(600), (x, y) => x);
+
+    var example = source.scan((origin, next) => origin + next, '');
+
+    example.subscribe({
+        next: (value) => { console.log(value); },
+        error: (err) => { console.log('Error: ' + err); },
+        complete: () => { console.log('complete'); }
+    });
+    // h
+    // he
+    // hel
+    // hell
+    // hello
+    // complete
+    ```
+    宝石图(Marble Diagram):
+    ```
+    source :-----h-----e-----l-----l-----o|
+    example:-----h-----(he)-----(hel)-----(hell)-----(hello)|
+    ```
+
++ buffer:一共有5个方法（buffer，bufferCount，bufferTime，bufferToggle，bufferWhen），常用的是前三个
+
+    buffer: buffer要传入一个可观察对象(source2)，他会把原来的可观察对象(source)发送的值缓存在数组中，等到source2发送元素时，就会把缓存的数组发送出去
+    ```javascript
+    var source = Rx.Observable.interval(300);
+    var source2 = Rx.Observable.interval(1000);
+    var example = source.buffer(source2);
+
+    example.subscribe({
+        next: (value) => { console.log(value); },
+        error: (err) => { console.log('Error: ' + err); },
+        complete: () => { console.log('complete'); }
+    });
+    // [0,1,2]
+    // [3,4,5]
+    // [6,7,8]
+    ```
+    宝石图(Marble Diagram):
+    ```
+    source :--0--1--2--3--4--5--6--7--8--9
+    source2:---------0---------1---------2
+    example:---------([0,1,2])---------([3,4,5])---------([6,7,8])
+    ```
+
+    bufferTime: bufferTime和上面的例子类似
+    ```javascript
+    var source = Rx.Observable.interval(300);
+    var example = source.bufferTime(1000);
+
+    example.subscribe({
+        next: (value) => { console.log(value); },
+        error: (err) => { console.log('Error: ' + err); },
+        complete: () => { console.log('complete'); }
+    });
+    // [0,1,2]
+    // [3,4,5]
+    // [6,7,8]
+    ```
+
+    bufferCount: 使用数量做缓存
+    ```javascript
+    var source = Rx.Observable.interval(300);
+    var example = source.bufferCount(3);
+
+    example.subscribe({
+        next: (value) => { console.log(value); },
+        error: (err) => { console.log('Error: ' + err); },
+        complete: () => { console.log('complete'); }
+    });
+    // [0,1,2]
+    // [3,4,5]
+    // [6,7,8]
+    ```
+
++ delay:延迟可观察对象开始发送的时间点
+
+    ```javascript
+    var source = Rx.Observable.interval(300).take(5);
+
+    var example = source.delay(500);
+
+    example.subscribe({
+        next: (value) => { console.log(value); },
+        error: (err) => { console.log('Error: ' + err); },
+        complete: () => { console.log('complete'); }
+    });
+    // 0
+    // 1
+    // 2
+    // 3
+    // 4
+    ```
+    宝石图(Marble Diagram):
+    ```
+    source :--0--1--2--3--4|
+    example:-------0--1--2--3--4|
+    ```
+
++ debounce:和buffer，bufferTime一样，debounce和debounceTime一个是传入observable一个传入毫秒值，常用的是debounceTime。作用是每次接受新的元素后会等待一段时间，如果这段时间内没有接受新的元素则将元素发送；如果接受新的元素，则释放原来的元素并重新计时间。
+
+    ```javascript
+    var source = Rx.Observable.interval(300).take(5);
+    var example = source.debounceTime(1000);
+
+    example.subscribe({
+        next: (value) => { console.log(value); },
+        error: (err) => { console.log('Error: ' + err); },
+        complete: () => { console.log('complete'); }
+    });
+    // 4
+    // complete
+    ```
+    宝石图(Marble Diagram):
+    ```
+    source :--0--1--2--3--4|
+    example:--------------4|
+    ```
+
++ throttle:有throttle和throttleTime两个方法，一个传入observable，另一个传入毫秒。作用是先发送接受的元素，然后等待一段时间，等这段时间过了之后再发送新的元素。
+
+    ```js
+    var source = Rx.Observable.interval(300).take(5);
+    var example = source.throttleTime(1000);
+
+    example.subscribe({
+        next: (value) => { console.log(value); },
+        error: (err) => { console.log('Error: ' + err); },
+        complete: () => { console.log('complete'); }
+    });
+    // 0
+    // 4
+    // complete
     ```
 
