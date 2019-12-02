@@ -565,3 +565,176 @@
     // complete
     ```
 
++ distinct:过滤掉相同的值
+
+    ```js
+    var source = Rx.Observable.from(['a', 'b', 'c', 'a', 'b'])
+            .zip(Rx.Observable.interval(300), (x, y) => x);
+    var example = source.distinct();
+
+    example.subscribe({
+        next: (value) => { console.log(value); },
+        error: (err) => { console.log('Error: ' + err); },
+        complete: () => { console.log('complete'); }
+    });
+    // a
+    // b
+    // c
+    // complete
+    ```
+    宝石图(Marble Diagram):
+    ```
+    source: --a--b--c--a--b|
+    example:--a--b--c------|
+    ```
+    我们可以传入一个callback，回调函数会接受一个元素，并回传我们真正希望比对的值：
+    ```js
+    var source = Rx.Observable.from([{ value: 'a'}, { value: 'b' }, { value: 'c' }, { value: 'a' }, { value: 'c' }])
+            .zip(Rx.Observable.interval(300), (x, y) => x);
+    var example = source.distinct((x) => {
+        return x.value
+    });
+
+    example.subscribe({
+        next: (value) => { console.log(value); },
+        error: (err) => { console.log('Error: ' + err); },
+        complete: () => { console.log('complete'); }
+    });
+    // {value: "a"}
+    // {value: "b"}
+    // {value: "c"}
+    // complete
+    ```
+    事实上，distinct()会在背后创建一个Set，当接受到元素时会先去判断Set内是否有相同的值，如果有则不会发送，没有则会存到Set并发送。所以尽量不要直接把distinct用在一个无限的observable里，这样可能会使Set越来越大，建议使用第二个参数flushes或者用distinctUntilChanged
+    ```js
+    var source = Rx.Observable.from(['a', 'b', 'c', 'a', 'c'])
+                .zip(Rx.Observable.interval(300), (x, y) => x);
+    var flushes = Rx.Observable.interval(1300);
+    var example = source.distinct(null, flushes);
+
+    example.subscribe({
+        next: (value) => { console.log(value); },
+        error: (err) => { console.log('Error: ' + err); },
+        complete: () => { console.log('complete'); }
+    });
+    // a
+    // b
+    // c
+    // c
+    // complete
+    ```
+    宝石图(Marble Diagram):
+    ```
+    source: --a--b--c--a--c|
+    flushes:------------0---...
+    example:--a--b--c-----c|
+    ```
+
++ distinctUntilChanged:distinctUntilChanged跟distinct一样会把相同的元素过滤掉，但是distinctUntilChanged只会和最后一个发送的元素比较，而不是每个都比较。
+    ```js
+    var source = Rx.Observable.from(['a', 'b', 'c', 'c', 'b'])
+                .zip(Rx.Observable.interval(300), (x, y) => x);
+    var example = source.distinctUntilChanged()
+
+    example.subscribe({
+        next: (value) => { console.log(value); },
+        error: (err) => { console.log('Error: ' + err); },
+        complete: () => { console.log('complete'); }
+    });
+    // a
+    // b
+    // c
+    // b
+    // complete
+    ```
+    宝石图(Marble Diagram):
+    ```
+    source: --a--b--c--c--b|
+    example:--a--b--c-----b|
+    ```
+
++ catch:在Rxjs中可以使用catch来处理错误，catch可以接受一个observable来发送新的值。
+    ```js
+    var source = Rx.Observable.from(['a','b','c','d',2])
+                .zip(Rx.Observable.interval(500), (x,y) => x);
+
+    var example = source
+                .map(x => x.toUpperCase())
+                .catch(error => Rx.Observable.of('h'));
+
+    example.subscribe({
+        next: (value) => { console.log(value); },
+        error: (err) => { console.log('Error: ' + err); },
+        complete: () => { console.log('complete'); }
+    }); 
+    ```
+    宝石图(Marble Diagram):
+    ```
+    source: ----a----b----c----d----2|
+            map(x => x.toUpperCase())
+            ----A----B----C----D----x|
+            catch(error => Rx.Observable.of('h'))
+    example:----A----B----C----D----h|
+    ```
+    我们也可以通过返回Rx.Observable.empty()来结束。catch回调函数里的第二个参数会接受当前的observable对象，我们也可以回传当前的observable对象来实现重新执行。
+
++ retry:当一个observable发生错误时，重新尝试可以使用retry()方法。retry可以传入一个数值，表示重新尝试的次数，错误会在使用完次数之后抛出。
+    ```js
+    var source = Rx.Observable.from(['a','b','c','d',2])
+                .zip(Rx.Observable.interval(500), (x,y) => x);
+
+    var example = source
+                    .map(x => x.toUpperCase())
+                    .retry(1);
+
+    example.subscribe({
+        next: (value) => { console.log(value); },
+        error: (err) => { console.log('Error: ' + err); },
+        complete: () => { console.log('complete'); }
+    }); 
+    // a
+    // b
+    // c
+    // d
+    // a
+    // b
+    // c
+    // d
+    // Error: TypeError: x.toUpperCase is not a function
+    ```
+    宝石图(Marble Diagram):
+    ```
+    source :----a----b----c----d----2|
+            map(x => x.toUpperCase())
+            ----a----b----c----d----X|
+            retry(1)
+    example:----a----b----c----d--------a----b----c----d----X|
+    ```
+
++ repeat:实现一直重复订阅的效果。
+    ```js
+    var source = Rx.Observable.from(['a','b','c'])
+            .zip(Rx.Observable.interval(500), (x,y) => x);
+
+    var example = source.repeat(2);
+
+    example.subscribe({
+        next: (value) => { console.log(value); },
+        error: (err) => { console.log('Error: ' + err); },
+        complete: () => { console.log('complete'); }
+    });
+    
+    // a
+    // b
+    // c
+    // a
+    // b
+    // c
+    // complete
+    ```
+    宝石图(Marble Diagram):
+    ```
+    source : ----a----b----c|
+            repeat(2)
+    example: ----a----b----c----a----b----c|
+    ```
